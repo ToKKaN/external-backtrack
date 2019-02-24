@@ -115,6 +115,16 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="main.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="backtrack.hpp" />
+    <ClInclude Include="entity.hpp" />
+    <ClInclude Include="memory.hpp" />
+    <ClInclude Include="offsets.hpp" />
+    <ClInclude Include="stdafx.hpp" />
+    <ClInclude Include="structs.hpp" />
+    <ClInclude Include="vector.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
