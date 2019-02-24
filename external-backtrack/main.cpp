@@ -8,7 +8,7 @@ c_module* engine_module = nullptr;
 c_module* client_module = nullptr;
 bool end = false;
 
-unsigned int __stdcall backtrack( void* data )
+unsigned int __stdcall backtrack()
 {
 	for( ;; )
 	{
@@ -25,7 +25,7 @@ unsigned int __stdcall backtrack( void* data )
 
 	return 0;
 }
-unsigned int __stdcall update_data( void* data )
+unsigned int __stdcall update_data()
 {
 	for( ;; )
 	{
@@ -41,7 +41,7 @@ unsigned int __stdcall update_data( void* data )
 
 	return 0;
 }
-unsigned int __stdcall best_simtime( void* data )
+unsigned int __stdcall best_simtime()
 {
 	for( ;; )
 	{
@@ -57,7 +57,7 @@ unsigned int __stdcall best_simtime( void* data )
 
 	return 0;
 }
-unsigned int __stdcall hotkey( void* data )
+unsigned int __stdcall hotkey()
 {
 	for( ;; )
 	{
@@ -110,19 +110,15 @@ int main()
 
 	offsets::dw_clientstate = g_ptr_memory->read_memory<ptrdiff_t>( engine_module->get_image_base() + offsets::dw_clientstate );
 
-	HANDLE my_handles[ 4 ];
+	std::thread t1( backtrack );
+	std::thread t2( update_data );
+	std::thread t3( best_simtime );
+	std::thread t4( hotkey );
 
-	my_handles[ 0 ] = reinterpret_cast< HANDLE >( _beginthreadex( nullptr, 0, &backtrack, nullptr, 0, nullptr ) );
-	my_handles[ 1 ] = reinterpret_cast< HANDLE >( _beginthreadex( nullptr, 0, &update_data, nullptr, 0, nullptr ) );
-	my_handles[ 2 ] = reinterpret_cast< HANDLE >( _beginthreadex( nullptr, 0, &best_simtime, nullptr, 0, nullptr ) );
-	my_handles[ 3 ] = reinterpret_cast< HANDLE >( _beginthreadex( nullptr, 0, &hotkey, nullptr, 0, nullptr ) );
-
-	WaitForMultipleObjects( 4, my_handles, true, INFINITE );
-
-	for( auto h : my_handles )
-	{
-		CloseHandle( h );
-	}
+	t1.join();
+	t2.join();
+	t3.join();
+	t4.join();
 
 	g_ptr_backtrack->send_packet( true );
 
