@@ -9,13 +9,13 @@
 class c_module
 {
 public:
-	c_module( const ptrdiff_t  img_base, const ptrdiff_t  img_size, const std::string& img_name, const std::string& img_path )
+	c_module( const ptrdiff_t  img_base, const ptrdiff_t  img_size, const std::string& img_name, const std::string& img_path ) :
+		image_size_( img_size ),
+		image_base_( img_base ),
+		image_name_( img_name ),
+		image_path_( img_path )
 	{
-		image_base_ = img_base;
-		image_size_ = img_size;
-		image_name_ = img_name;
-		image_path_ = img_path;
-		image_bytes_ = std::vector<unsigned char>( image_size_ );
+		
 	}
 	const std::string&	get_path() const
 	{
@@ -39,13 +39,11 @@ public:
 		image_name_.clear();
 		image_path_.clear();
 		image_base_ = NULL;
-		image_bytes_.clear();
 	}
 
 private:
 	uintptr_t 					image_size_;
 	ptrdiff_t 					image_base_;
-	std::vector<unsigned char>	image_bytes_;
 	std::string					image_name_;
 	std::string					image_path_;
 };
@@ -181,7 +179,7 @@ public:
 
 		return nullptr; // module not found
 	}
-	void set_process_window( const HWND& window )
+	void set_process_window( const HWND window )
 	{
 		process_hwnd_ = window;
 	}
