@@ -16,10 +16,8 @@ unsigned int __stdcall backtrack()
 			break;
 
 		if( g_ptr_backtrack->is_ingame() && GetForegroundWindow() == g_ptr_memory->get_window() )
-		{
-			if( GetAsyncKeyState(0x1) & 0x8000 )
-				g_ptr_backtrack->do_backtrack();
-		}
+			g_ptr_backtrack->do_backtrack();
+
 		std::this_thread::sleep_for( std::chrono::milliseconds( 1 ) );
 	}
 
@@ -33,9 +31,8 @@ unsigned int __stdcall update_data()
 			break;
 
 		if( g_ptr_backtrack->is_ingame() )
-		{
 			g_ptr_backtrack->update();
-		}
+		
 		std::this_thread::sleep_for( std::chrono::milliseconds( 1 ) );
 	}
 
@@ -49,9 +46,8 @@ unsigned int __stdcall best_simtime()
 			break;
 
 		if( g_ptr_backtrack->is_ingame() )
-		{
 			g_ptr_backtrack->best_simtime();
-		}
+		
 		std::this_thread::sleep_for( std::chrono::milliseconds( 1 ) );
 	}
 

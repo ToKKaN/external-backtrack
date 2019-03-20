@@ -20,10 +20,18 @@ public:
 	{
 		return g_ptr_memory->read_memory<int>( offsets::dw_clientstate + netvars::i_local );
 	}
-	void do_backtrack()
+	static bool can_shoot()
 	{
 		const c_entity local( local_player_index() );
-		if( local.health() < 1 )
+
+		const auto next_primary_attack = g_ptr_memory->read_memory< float >( local.current_weapon_base() + netvars::f_next_primary_attack );
+		const auto server_time = local.tickbase() * get_globalvars().interval_per_tick;
+
+		return ( !( next_primary_attack > server_time ) );
+	}
+	void do_backtrack() const
+	{
+		if( !can_shoot() )
 			return;
 
 		const auto current_sequence_number = g_ptr_memory->read_memory<int>( offsets::dw_clientstate + offsets::dw_last_outgoing_command ) + 2;
@@ -42,7 +50,7 @@ public:
 
 		auto old_usercmd = g_ptr_memory->read_memory<usercmd_t>( ptr_old_usercmd );
 
-		if( best_target_ != -1 && best_simtime_ != -1 )
+		if( ( best_simtime_ != -1 ) && ( GetAsyncKeyState( 0x1 ) & 0x8000 ) )
 		{
 			old_usercmd.m_iButtons |= IN_ATTACK;
 			old_usercmd.m_iTickCount = time_to_ticks( best_simtime_ );
@@ -50,27 +58,35 @@ public:
 			g_ptr_memory->write_memory<usercmd_t>( ptr_verified_old_usercmd, old_usercmd );
 		}
 		send_packet( true );
+
 	}
 	void best_simtime()
 	{
-		const c_entity local( local_player_index() );
-		if( local.health() < 1 )
+		if( best_target_ == -1 )
+		{
+			best_simtime_ = -1;
 			return;
+		}
+		const c_entity local( local_player_index() );
 
 		auto temp = FLT_MAX;
 		const auto view_direction = angle_vector( get_viewangles() + ( local.punch_angles() * 2.f ) );
 		for( auto t = 0; t < 12; ++t )
 		{
-			const auto temp2 = distance_point_to_line( backtrack_positions[ best_target_ ][ t ].hitboxpos, local.eye_postition(), view_direction );
-			if( temp > temp2 && backtrack_positions[ best_target_ ][ t ].simtime > local.simulation_time() - 1 )
+			const auto temp2 = distance_point_to_line( backtrack_positions_[ best_target_ ][ t ].hitboxpos, local.eye_postition(), view_direction );
+			if( temp > temp2 && backtrack_positions_[ best_target_ ][ t ].simtime > local.simulation_time() - 1 )
 			{
 				temp = temp2;
-				best_simtime_ = backtrack_positions[ best_target_ ][ t ].simtime;
+				best_simtime_ = backtrack_positions_[ best_target_ ][ t ].simtime;
 			}
 		}
+		if( max_backtrack_ms_ > 0 && !is_valid_tick( time_to_ticks( best_simtime_ ) ) )
+			best_simtime_ = -1;
 	}
 	void update()
 	{
+		best_target_ = -1;
+
 		const auto local_index = local_player_index();
 		const c_entity local( local_index );
 		auto best_fov = FLT_MAX;
@@ -92,21 +108,12 @@ public:
 
 			if( entity.health() > 0 )
 			{
-
-				const auto current_sequence_number = g_ptr_memory->read_memory<int>( offsets::dw_clientstate + offsets::dw_last_outgoing_command ) + 2;
-
-				const auto input = g_ptr_memory->read_memory<input_t>( client_module->get_image_base() + offsets::dw_input );
-
-				const auto ptr_usercmd = input.m_pCommands + ( current_sequence_number % 150 ) * sizeof( usercmd_t );
-				auto cmd = g_ptr_memory->read_memory<usercmd_t>( ptr_usercmd );
-
 				const auto simtime = entity.simulation_time();
-				const auto head_position = entity.get_bone_position( 8 );
+				const auto head_position = entity.bone_position( 8 );
 
-				backtrack_positions[ i ][ cmd.m_iCmdNumber % 13 ] = backtrack_data_t{ simtime, head_position };
-				const auto view_direction = angle_vector( cmd.m_vecViewAngles + ( local.punch_angles() * 2.f ) );
+				backtrack_positions_[ i ][ get_globalvars().tickcount % 13 ] = backtrack_data_t{ simtime, head_position };
+				const auto view_direction = angle_vector( get_viewangles() + ( local.punch_angles() * 2.f ) );
 				const auto fov_distance = distance_point_to_line( head_position, local.eye_postition(), view_direction );
-
 				if( best_fov > fov_distance )
 				{
 					best_fov = fov_distance;
@@ -116,9 +123,30 @@ public:
 		}
 	}
 private:
+	static netchannel_t get_netchannel()
+	{
+		return g_ptr_memory->read_memory<netchannel_t>( g_ptr_memory->read_memory<ptrdiff_t>( offsets::dw_clientstate + netvars::dw_netchannel ) );
+	}
+	bool is_valid_tick( const int tick ) const
+	{
+		const auto gvars = get_globalvars();
+		const auto delta = gvars.tickcount - tick;
+		const auto delta_time = delta * gvars.interval_per_tick;
+		const auto max = static_cast< float >( static_cast < float >( max_backtrack_ms_ ) / static_cast < float >( 1000 ) );
+		return ( fabs( delta_time ) <= max );
+
+	}
+	static double get_nextcmdtime()
+	{
+		return g_ptr_memory->read_memory<double>( offsets::dw_clientstate + netvars::dw_next_cmd );
+	}
 	static globalvars_t get_globalvars()
 	{
 		return g_ptr_memory->read_memory<globalvars_t>( engine_module->get_image_base() + offsets::dw_globalvars );
+	}
+	static void set_tick_count( const int tick )
+	{
+		g_ptr_memory->write_memory<int>( engine_module->get_image_base() + offsets::dw_globalvars + 0x1C, tick );
 	}
 	static Vector get_viewangles()
 	{
@@ -126,7 +154,7 @@ private:
 	}
 	static int time_to_ticks( float time )
 	{
-		return static_cast< int >( 0.5f + static_cast< float >( time ) / get_globalvars().interval_per_tick );
+		return static_cast< int >( static_cast< float >( 0.5f ) + static_cast< float >( time ) / static_cast< float >( get_globalvars().interval_per_tick ) );
 	}
 	static Vector angle_vector( const Vector in )
 	{
@@ -151,9 +179,10 @@ private:
 		return ( point - perpen_point ).Length();
 	}
 
-	backtrack_data_t backtrack_positions[ 64 ][ 12 ];
+	backtrack_data_t backtrack_positions_[ 64 ][ 12 ] = { 0.0f, Vector(0.0f, 0.0f, 0.0f) };
 	int best_target_ = -1;
 	float best_simtime_ = -1;
+	int max_backtrack_ms_ = 200; // how many millisecond we want our backtrack to be max
 };
 
 extern std::unique_ptr<c_backtrack> g_ptr_backtrack;

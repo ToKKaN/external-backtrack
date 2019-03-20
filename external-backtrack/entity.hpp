@@ -33,7 +33,7 @@ public:
 	{
 		return g_ptr_memory->read_memory<float>( baseaddress_ + netvars::f_simulation_time );
 	}
-	Vector get_bone_position( const int bone ) const
+	Vector bone_position( const int bone ) const
 	{
 		Vector out;
 		const auto temp = g_ptr_memory->read_memory<ptrdiff_t>( baseaddress_ + netvars::dw_bonematrix );
@@ -57,6 +57,15 @@ public:
 		eye += origin();
 
 		return eye;
+	}
+	int tickbase() const
+	{
+		return g_ptr_memory->read_memory<int>( baseaddress_ + netvars::i_tickbase );
+	}
+	ptrdiff_t current_weapon_base() const
+	{
+		const auto active_weapon = g_ptr_memory->read_memory<ptrdiff_t>( baseaddress_ + netvars::dw_active_weapon );
+		return g_ptr_memory->read_memory<ptrdiff_t>( client_module->get_image_base() + offsets::dw_entitylist + ( ( active_weapon & 0xFFF ) - 1 ) * 0x10 );
 	}
 private:
 	ptrdiff_t baseaddress_;
