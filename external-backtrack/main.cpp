@@ -79,13 +79,16 @@ int main()
 		game_window = FindWindowA( nullptr, "Counter-Strike: Global Offensive" );
 		std::this_thread::sleep_for( std::chrono::milliseconds( 100 ) );
 	}
-	std::this_thread::sleep_for( std::chrono::milliseconds( 1000 ) );
-	while( !g_ptr_memory->attach_process("csgo.exe") )
+	std::this_thread::sleep_for( std::chrono::milliseconds( 5000 ) );
+
+	if( !g_ptr_memory->attach_process("csgo.exe") )
 	{
-		std::this_thread::sleep_for( std::chrono::milliseconds( 100 ) );
+		printf_s( "can not attack to csgo.exe... exiting now\n" );
+		return -1;
 	}
+
 	printf_s( "Counter-Strike: Global Offensive found\n" );
-	
+
 	while( !engine_module || !client_module )
 	{
 		engine_module = g_ptr_memory->get_module( "engine.dll" );
@@ -103,6 +106,8 @@ int main()
 		printf_s( "can not find engine and client module... exiting now\n" );
 		return -1;
 	}
+
+	printf_s( "press F6 to exit safely\n" );
 
 	offsets::dw_clientstate = g_ptr_memory->read_memory<ptrdiff_t>( engine_module->get_image_base() + offsets::dw_clientstate );
 
